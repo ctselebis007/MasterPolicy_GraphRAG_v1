@@ -1,5 +1,6 @@
 import { Bot, User, BookMarked } from 'lucide-react';
 import type { QAResponse } from '../lib/api';
+import PipelineSteps from './PipelineSteps';
 
 export type ChatEntry =
   | { role: 'user'; content: string }
@@ -39,6 +40,9 @@ export default function ChatMessage({ entry }: { entry: ChatEntry }) {
               </span>
             ))}
           </div>
+        )}
+        {!isUser && entry.data?.pipeline && entry.data.pipeline.length > 0 && (
+          <PipelineSteps steps={entry.data.pipeline} />
         )}
         {!isUser && entry.data?.matches && entry.data.matches.length > 0 && (
           <details className="text-xs text-slate-500">

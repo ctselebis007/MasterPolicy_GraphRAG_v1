@@ -43,10 +43,20 @@ export async function listIndexes() {
   return res.data;
 }
 
+export type PipelineStep = {
+  step: string;
+  description: string;
+  detail?: Record<string, unknown>;
+  pipelines?: Record<string, unknown>;
+  durationMs: number;
+  totalSearchMs?: number;
+};
+
 export type QAResponse = {
   answer: string;
   references: { policyId: string; sectionId?: string; title?: string }[];
   contextCount: number;
+  pipeline?: PipelineStep[];
   matches?: {
     policyId: string;
     title: string;

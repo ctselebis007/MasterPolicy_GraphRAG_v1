@@ -192,10 +192,13 @@ export default function SetupPage() {
           <Card>
             <h3 className="text-sm font-semibold text-slate-900 mb-2">How it works</h3>
             <ol className="text-xs text-slate-600 space-y-2 list-decimal pl-4">
-              <li>PDF is parsed into parent policies with embedded sections.</li>
-              <li>Each parent + section is embedded with text-embedding-3-small.</li>
-              <li>Atlas Vector Search and $search indexes are created programmatically.</li>
-              <li>Q&amp;A hybrid-searches and asks GPT-4o using the matched context.</li>
+              <li><span className="font-semibold text-slate-700">Hierarchical Chunking</span> — PDF is parsed into parent policies (<code className="text-emerald-700">Policy X.XX</code>) with nested child sections (<code className="text-emerald-700">Policy X.XXa</code>). Cross-references between policies are extracted and stored as graph edges.</li>
+              <li><span className="font-semibold text-slate-700">Enriched Embeddings</span> — Each parent &amp; section is embedded with <code className="text-emerald-700">text-embedding-3-small</code>. Embedding text is enriched with cross-ref IDs, section summaries, and parent context for better semantic retrieval.</li>
+              <li><span className="font-semibold text-slate-700">Atlas Indexes</span> — Vector Search (<code className="text-emerald-700">$vectorSearch</code>) and text search (<code className="text-emerald-700">$search</code>) indexes are created programmatically. Standard indexes on <code className="text-emerald-700">policyId</code> and <code className="text-emerald-700">refPolicyIds</code> enable graph traversal.</li>
+              <li><span className="font-semibold text-slate-700">Query Expansion</span> — User questions are expanded by GPT-4o into multiple search phrases and domain keywords before retrieval.</li>
+              <li><span className="font-semibold text-slate-700">Hybrid Search</span> — Parallel vector (parent + child embeddings) and keyword text searches run across all expanded queries.</li>
+              <li><span className="font-semibold text-slate-700">$graphLookup Traversal</span> — MongoDB <code className="text-emerald-700">$graphLookup</code> recursively follows cross-reference edges (depth 2) to discover connected policies. Reverse lookup finds policies that reference initial hits.</li>
+              <li><span className="font-semibold text-slate-700">LLM Answer Generation</span> — GPT-4o synthesizes an answer from all retrieved contexts (direct matches + graph-connected), citing specific policy numbers with structured references.</li>
             </ol>
           </Card>
 

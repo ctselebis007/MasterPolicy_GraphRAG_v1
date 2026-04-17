@@ -40,13 +40,28 @@ router.post('/seed', upload.single('pdf'), async (req, res) => {
     const parents = await parsePdfToHierarchy(req.file.buffer);
     updateSeedStatus({ progress: `Parsed ${parents.length} policies. Embedding...` });
 
-    const parentTexts = parents.map((p) => `Policy ${p.policyId} ${p.title}\n${p.content}`.trim());
+    // Enrich embedding text: include cross-ref IDs + section summaries for better semantic retrieval
+    const parentTexts = parents.map((p) => {
+      const sectionSummaries = (p.sections || [])
+        .map((s) => `[${s.sectionId}] ${s.title}`)
+        .join('; ');
+      const refNote = (p.crossRefs || []).length
+        ? `\nRelated policies: ${p.crossRefs.join(', ')}`
+        : '';
+      return `Policy ${p.policyId} ${p.title}\n${p.content}${refNote}${sectionSummaries ? `\nChild sections: ${sectionSummaries}` : ''}`.trim();
+    });
     const parentVecs = await embedTexts(parentTexts);
 
     const allSections = [];
     parents.forEach((p, pi) => {
       (p.sections || []).forEach((s, si) => {
-        allSections.push({ pi, si, text: `Policy ${s.sectionId} ${s.title}\n${s.content}`.trim() });
+        const refNote = (s.crossRefs || []).length
+          ? `\nRelated policies: ${s.crossRefs.join(', ')}`
+          : '';
+        allSections.push({
+          pi, si,
+          text: `Policy ${s.sectionId} ${s.title} (parent: ${p.policyId} ${p.title})\n${s.content}${refNote}`.trim(),
+        });
       });
     });
     const sectionVecs = await embedTexts(allSections.map((x) => x.text));
@@ -59,6 +74,8 @@ router.post('/seed', upload.single('pdf'), async (req, res) => {
       title: p.title,
       content: p.content,
       sections: p.sections,
+      crossRefs: p.crossRefs || [],
+      refPolicyIds: p.refPolicyIds || [],
       embedding: parentVecs[i],
       createdAt: new Date(),
     }));
@@ -66,6 +83,11 @@ router.post('/seed', upload.single('pdf'), async (req, res) => {
     const col = db.collection(COLLECTION);
     await col.deleteMany({});
     if (docs.length) await col.insertMany(docs);
+
+    // Create standard indexes for $graphLookup traversal
+    await col.createIndex({ policyId: 1 }, { unique: true });
+    await col.createIndex({ refPolicyIds: 1 });
+    await col.createIndex({ 'sections.sectionId': 1 });
 
     updateSeedStatus({ progress: `Inserted ${docs.length} documents. Creating Atlas indexes...` });
 

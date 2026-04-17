@@ -1,6 +1,36 @@
 import pdfParse from 'pdf-parse/lib/pdf-parse.js';
 
 const POLICY_RE = /^\s*Policy\s+(\d+)\.(\d+)([a-zA-Z])?\b[\s\.:\-]*(.*)$/;
+// Match inline references like "Policy 2.71d", "FAQ 2.71d-1", "Policy 8.49", "see 3.12a"
+const CROSSREF_RE = /(?:Policy|FAQ|policy|faq|See|see|Section|section)\s+(\d+\.\d+[a-zA-Z]?(?:-\d+)?)/g;
+
+/** Extract the parent policy ID from any reference (e.g. "2.71d-1" → "2.71") */
+function toParentId(ref) {
+  const m = ref.match(/^(\d+\.\d+)/);
+  return m ? m[1] : ref;
+}
+
+function extractCrossRefs(text, ownId) {
+  const refs = new Set();
+  let m;
+  while ((m = CROSSREF_RE.exec(text)) !== null) {
+    const ref = m[1];
+    if (ref !== ownId) refs.add(ref);
+  }
+  return [...refs];
+}
+
+/**
+ * Normalize cross-refs to parent-level policy IDs for $graphLookup connectivity.
+ * e.g. ["2.71d-1", "2.71d-2", "8.49i"] → ["2.71", "8.49"]
+ */
+function toParentIds(crossRefs) {
+  const ids = new Set();
+  for (const ref of crossRefs) {
+    ids.add(toParentId(ref));
+  }
+  return [...ids];
+}
 
 export async function parsePdfToHierarchy(buffer) {
   const data = await pdfParse(buffer);
@@ -64,6 +94,17 @@ export async function parsePdfToHierarchy(buffer) {
   }
   flushBuffer();
 
+  // Extract cross-references from content of each parent and its sections
+  for (const parent of parents.values()) {
+    const allText = [parent.content, ...parent.sections.map((s) => s.content)].join('\n');
+    parent.crossRefs = extractCrossRefs(allText, parent.policyId);
+    // Normalized parent-level IDs for $graphLookup
+    parent.refPolicyIds = toParentIds(parent.crossRefs);
+    for (const section of parent.sections) {
+      section.crossRefs = extractCrossRefs(section.content, section.sectionId);
+    }
+  }
+
   const parentsArr = Array.from(parents.values());
   if (parentsArr.length === 0) {
     const chunks = chunkText(rawText, 1200);
@@ -72,6 +113,8 @@ export async function parsePdfToHierarchy(buffer) {
       title: `Section ${i + 1}`,
       content: c,
       sections: [],
+      crossRefs: [],
+      refPolicyIds: [],
     }));
   }
   return parentsArr;

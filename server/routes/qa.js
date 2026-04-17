@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { hybridSearch } from '../services/searchService.js';
+import { multiHopSearch } from '../services/searchService.js';
 import { answerWithContext } from '../services/llmService.js';
 
 const router = Router();
@@ -10,17 +10,32 @@ router.post('/ask', async (req, res) => {
     if (!question || !question.trim()) {
       return res.status(400).json({ error: 'question required' });
     }
-    const hits = await hybridSearch(question, { limit: 6 });
+    const totalStart = Date.now();
+    const { hits, pipeline } = await multiHopSearch(question, { limit: 10 });
     if (!hits.length) {
       return res.json({
         answer: 'No matching policy content was found. Have you seeded the database and waited for Atlas indexes to become READY?',
         references: [],
         contextCount: 0,
+        pipeline,
       });
     }
+    const llmStart = Date.now();
     const result = await answerWithContext(question, hits);
+    pipeline.push({
+      step: 'LLM Generation',
+      description: `GPT-4o synthesized answer from ${hits.length} policy contexts`,
+      detail: { model: 'gpt-4o', contextsUsed: hits.length, referencesReturned: result.references?.length || 0 },
+      durationMs: Date.now() - llmStart,
+    });
+    pipeline.push({
+      step: 'Total',
+      description: 'End-to-end pipeline complete',
+      durationMs: Date.now() - totalStart,
+    });
     res.json({
       ...result,
+      pipeline,
       matches: hits.map((h) => ({
         policyId: h.policyId,
         title: h.title,
