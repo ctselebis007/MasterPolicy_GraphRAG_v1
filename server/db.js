@@ -14,6 +14,14 @@ const state = {
     indexes: { vector: 'not_created', text: 'not_created' },
     progress: '',
   },
+  simpleSeedStatus: {
+    seeded: false,
+    seeding: false,
+    lastError: null,
+    documentCount: 0,
+    indexes: { vector: 'not_created' },
+    progress: '',
+  },
 };
 
 export async function connectDb({ uri, dbName }) {
@@ -62,10 +70,27 @@ export function getStatus() {
   };
 }
 
+export function getSimpleStatus() {
+  return {
+    connected: !!state.db,
+    dbName: state.dbName,
+    hasOpenAIKey: !!state.openaiKey,
+    seed: state.simpleSeedStatus,
+  };
+}
+
 export function getSeedStatus() {
   return state.seedStatus;
 }
 
 export function updateSeedStatus(patch) {
   state.seedStatus = { ...state.seedStatus, ...patch };
+}
+
+export function getSimpleSeedStatus() {
+  return state.simpleSeedStatus;
+}
+
+export function updateSimpleSeedStatus(patch) {
+  state.simpleSeedStatus = { ...state.simpleSeedStatus, ...patch };
 }

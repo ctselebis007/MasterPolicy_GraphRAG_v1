@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { Database, KeyRound, Upload, CheckCircle2, AlertTriangle, Loader2, Link as LinkIcon, FileText } from 'lucide-react';
-import { connect, getStatus, seedPdf, listIndexes, type SetupStatus } from '../lib/api';
+import { simpleConnect, getSimpleStatus, simpleSeedPdf, simpleListIndexes, type SimpleSetupStatus } from '../lib/api';
 
-export default function SetupPage() {
+export default function SetupSimpleRAG() {
   const [uri, setUri] = useState(() => localStorage.getItem('setup_uri') || '');
   const [dbName, setDbName] = useState(() => localStorage.getItem('setup_dbName') || 'masterpolicy');
   const [openaiKey, setOpenaiKey] = useState(() => localStorage.getItem('setup_openaiKey') || '');
-  const [status, setStatus] = useState<SetupStatus | null>(null);
+  const [status, setStatus] = useState<SimpleSetupStatus | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
@@ -16,7 +16,7 @@ export default function SetupPage() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function refresh() {
-    try { setStatus(await getStatus()); } catch {}
+    try { setStatus(await getSimpleStatus()); } catch {}
   }
 
   useEffect(() => {
@@ -29,7 +29,7 @@ export default function SetupPage() {
     setConnecting(true);
     setConnectError(null);
     try {
-      await connect({ uri, dbName, openaiKey });
+      await simpleConnect({ uri, dbName, openaiKey });
       localStorage.setItem('setup_uri', uri);
       localStorage.setItem('setup_dbName', dbName);
       localStorage.setItem('setup_openaiKey', openaiKey);
@@ -46,7 +46,7 @@ export default function SetupPage() {
     setSeeding(true);
     setSeedError(null);
     try {
-      await seedPdf(pdfFile);
+      await simpleSeedPdf(pdfFile);
       await refresh();
     } catch (err: any) {
       setSeedError(err?.response?.data?.error || err.message || 'Seed failed');
@@ -57,7 +57,7 @@ export default function SetupPage() {
 
   async function handleCheckIndexes() {
     try {
-      const data = await listIndexes();
+      const data = await simpleListIndexes();
       const rows = (data.indexes || []).map((i: any) => `${i.name}: ${i.status || i.queryable ? 'queryable' : 'building'}`).join('\n');
       setIndexInfo(rows || 'No search indexes yet.');
     } catch (err: any) {
@@ -73,20 +73,20 @@ export default function SetupPage() {
       <header className="bg-white border-b border-slate-200">
         <div className="max-w-5xl mx-auto px-6 py-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-emerald-600 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center">
               <Database className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-semibold text-slate-900 tracking-tight">Setup GraphRAG</h1>
-              <p className="text-xs text-slate-500">MongoDB Atlas Vector Search + GPT-4o (Enriched embeddings, hybrid search, graph traversal)</p>
+              <h1 className="text-xl font-semibold text-slate-900 tracking-tight">Setup Simple RAG</h1>
+              <p className="text-xs text-slate-500">MongoDB Atlas Vector Search + GPT-4o (No enrichment, no hybrid, no graph)</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <a href="/simple-setup" className="text-sm text-slate-600 hover:text-slate-900 font-medium">
-              Setup Simple RAG
+            <a href="/setup" className="text-sm text-slate-600 hover:text-slate-900 font-medium">
+              Setup GraphRAG
             </a>
-            <a href="/qa" className="text-sm text-emerald-700 hover:text-emerald-900 font-medium">
-              Go to GraphRAG Q&amp;A
+            <a href="/simple-qa" className="text-sm text-blue-700 hover:text-blue-900 font-medium">
+              Go to Simple Q&amp;A
             </a>
           </div>
         </div>
@@ -141,12 +141,12 @@ export default function SetupPage() {
             <CardHeader
               icon={<FileText className="w-4 h-4" />}
               title="2. Seed the Master Policy PDF"
-              subtitle="Parses Policy X.XXa hierarchy, embeds, and creates Atlas indexes."
+              subtitle="Parses hierarchy, embeds with plain text (no enrichment), vector index only."
             />
             <div className="space-y-4 mt-4">
               <div
                 onClick={() => fileRef.current?.click()}
-                className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center cursor-pointer hover:border-emerald-500 hover:bg-emerald-50/40 transition-colors"
+                className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50/40 transition-colors"
               >
                 <Upload className="w-6 h-6 mx-auto text-slate-400 mb-2" />
                 <p className="text-sm text-slate-700 font-medium">
@@ -169,7 +169,7 @@ export default function SetupPage() {
                   className="btn-primary"
                 >
                   {seeding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                  Parse, embed, &amp; create indexes
+                  Parse, embed, &amp; create index
                 </button>
                 <button onClick={handleCheckIndexes} disabled={!connected} className="btn-secondary">
                   Check index status
@@ -193,25 +193,36 @@ export default function SetupPage() {
             <StatusRow ok={seeded} label={seeded ? `Seeded (${status?.seed?.documentCount} policies)` : 'Not seeded'} />
             <div className="mt-3 text-xs text-slate-500 space-y-1">
               <div>Vector index: <span className="font-mono">{status?.seed?.indexes?.vector || '—'}</span></div>
-              <div>Text index: <span className="font-mono">{status?.seed?.indexes?.text || '—'}</span></div>
             </div>
           </Card>
 
           <Card>
-            <h3 className="text-sm font-semibold text-slate-900 mb-2">How it works</h3>
+            <h3 className="text-sm font-semibold text-slate-900 mb-2">How Simple RAG works</h3>
             <ol className="text-xs text-slate-600 space-y-2 list-decimal pl-4">
-              <li><span className="font-semibold text-slate-700">Hierarchical Chunking</span> — PDF is parsed into parent policies (<code className="text-emerald-700">Policy X.XX</code>) with nested child sections (<code className="text-emerald-700">Policy X.XXa</code>). Cross-references between policies are extracted and stored as graph edges.</li>
-              <li><span className="font-semibold text-slate-700">Enriched Embeddings</span> — Each parent &amp; section is embedded with <code className="text-emerald-700">text-embedding-3-small</code>. Embedding text is enriched with cross-ref IDs, section summaries, and parent context for better semantic retrieval.</li>
-              <li><span className="font-semibold text-slate-700">Atlas Indexes</span> — Vector Search (<code className="text-emerald-700">$vectorSearch</code>) and text search (<code className="text-emerald-700">$search</code>) indexes are created programmatically. Standard indexes on <code className="text-emerald-700">policyId</code> and <code className="text-emerald-700">refPolicyIds</code> enable graph traversal.</li>
-              <li><span className="font-semibold text-slate-700">Query Expansion</span> — User questions are expanded by GPT-4o into multiple search phrases and domain keywords before retrieval.</li>
-              <li><span className="font-semibold text-slate-700">Hybrid Search</span> — Parallel vector (parent + child embeddings) and keyword text searches run across all expanded queries.</li>
-              <li><span className="font-semibold text-slate-700">$graphLookup Traversal</span> — MongoDB <code className="text-emerald-700">$graphLookup</code> recursively follows cross-reference edges (depth 2) to discover connected policies. Reverse lookup finds policies that reference initial hits.</li>
-              <li><span className="font-semibold text-slate-700">LLM Answer Generation</span> — GPT-4o synthesizes an answer from all retrieved contexts (direct matches + graph-connected), citing specific policy numbers with structured references.</li>
+              <li><span className="font-semibold text-slate-700">Hierarchical Chunking</span> — PDF is parsed into parent policies (<code className="text-blue-700">Policy X.XX</code>) with nested child sections (<code className="text-blue-700">Policy X.XXa</code>). Same structure as GraphRAG.</li>
+              <li><span className="font-semibold text-slate-700">Plain Embeddings</span> — Each parent &amp; section is embedded with <code className="text-blue-700">text-embedding-3-small</code> using raw text only. <strong>No enrichment</strong> with cross-references, summaries, or parent context.</li>
+              <li><span className="font-semibold text-slate-700">Vector Index Only</span> — Only a vector search index (<code className="text-blue-700">$vectorSearch</code>) is created. <strong>No text search index</strong>.</li>
+              <li><span className="font-semibold text-slate-700">Simple Vector Search</span> — User questions are searched directly against parent + child embeddings. <strong>No query expansion</strong>, <strong>no hybrid search</strong>.</li>
+              <li><span className="font-semibold text-slate-700">No Graph Traversal</span> — <strong>No <code className="text-blue-700">$graphLookup</code></strong>, no cross-reference following. Results come purely from vector similarity.</li>
+              <li><span className="font-semibold text-slate-700">LLM Answer Generation</span> — GPT-4o synthesizes an answer from retrieved contexts only, citing specific policy numbers.</li>
             </ol>
           </Card>
 
+          <Card>
+            <h3 className="text-sm font-semibold text-slate-900 mb-2">Simple RAG vs GraphRAG</h3>
+            <div className="text-xs text-slate-600 space-y-1">
+              <div className="flex justify-between"><span>Enriched embeddings</span><span className="font-mono text-red-600">No</span></div>
+              <div className="flex justify-between"><span>Text search ($search)</span><span className="font-mono text-red-600">No</span></div>
+              <div className="flex justify-between"><span>Query expansion</span><span className="font-mono text-red-600">No</span></div>
+              <div className="flex justify-between"><span>Hybrid search</span><span className="font-mono text-red-600">No</span></div>
+              <div className="flex justify-between"><span>$graphLookup traversal</span><span className="font-mono text-red-600">No</span></div>
+              <div className="flex justify-between"><span>Hierarchical chunking</span><span className="font-mono text-emerald-600">Yes</span></div>
+              <div className="flex justify-between"><span>Vector search</span><span className="font-mono text-emerald-600">Yes</span></div>
+            </div>
+          </Card>
+
           <div className="text-xs text-slate-400 text-center">
-            Indexes may take 1–5 minutes on Atlas to reach READY.
+            Vector index may take 1–5 minutes on Atlas to reach READY.
           </div>
         </aside>
       </main>
@@ -225,7 +236,7 @@ function Card({ children }: { children: React.ReactNode }) {
 function CardHeader({ icon, title, subtitle }: { icon: React.ReactNode; title: string; subtitle: string }) {
   return (
     <div className="flex items-start gap-3">
-      <div className="w-8 h-8 rounded-md bg-emerald-50 text-emerald-700 flex items-center justify-center">{icon}</div>
+      <div className="w-8 h-8 rounded-md bg-blue-50 text-blue-700 flex items-center justify-center">{icon}</div>
       <div>
         <h2 className="text-base font-semibold text-slate-900">{title}</h2>
         <p className="text-xs text-slate-500">{subtitle}</p>
@@ -245,7 +256,7 @@ function StatusRow({ ok, label }: { ok: boolean; label: string }) {
   return (
     <div className="flex items-center gap-2 text-sm py-1">
       {ok ? (
-        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+        <CheckCircle2 className="w-4 h-4 text-blue-600" />
       ) : (
         <AlertTriangle className="w-4 h-4 text-amber-500" />
       )}

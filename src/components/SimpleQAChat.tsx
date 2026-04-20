@@ -1,17 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { Send, Loader2, Settings, Database } from 'lucide-react';
-import { ask, getStatus, type SetupStatus } from '../lib/api';
+import { simpleAsk, getSimpleStatus, type SimpleSetupStatus } from '../lib/api';
 import ChatMessage, { type ChatEntry } from './ChatMessage';
 
-export default function QAChat() {
+export default function SimpleQAChat() {
   const [messages, setMessages] = useState<ChatEntry[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState<SetupStatus | null>(null);
+  const [status, setStatus] = useState<SimpleSetupStatus | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    getStatus().then(setStatus).catch(() => {});
+    getSimpleStatus().then(setStatus).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -25,7 +25,7 @@ export default function QAChat() {
     setMessages((m) => [...m, { role: 'user', content: q }]);
     setLoading(true);
     try {
-      const res = await ask(q);
+      const res = await simpleAsk(q);
       setMessages((m) => [...m, { role: 'assistant', content: res.answer || '(no answer)', data: res }]);
     } catch (err: any) {
       const msg = err?.response?.data?.error || err.message || 'Request failed';
@@ -42,11 +42,11 @@ export default function QAChat() {
       <header className="bg-white border-b border-slate-200">
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-emerald-600 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center">
               <Database className="w-4 h-4 text-white" />
             </div>
             <div>
-              <h1 className="text-base font-semibold text-slate-900">GraphRAG Q&amp;A</h1>
+              <h1 className="text-base font-semibold text-slate-900">Simple Q&amp;A</h1>
               <p className="text-xs text-slate-500">
                 {status?.connected ? `Connected to ${status.dbName}` : 'Not connected'}
                 {status?.seed?.seeded ? ` · ${status.seed.documentCount} policies` : ''}
@@ -55,13 +55,13 @@ export default function QAChat() {
           </div>
           <div className="flex items-center gap-4">
             <a
-              href="/simple-qa"
+              href="/qa"
               className="text-sm text-slate-600 hover:text-slate-900 font-medium"
             >
-              Simple Q&amp;A
+              GraphRAG Q&amp;A
             </a>
             <a
-              href="/setup"
+              href="/simple-setup"
               className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900 font-medium"
             >
               <Settings className="w-4 h-4" />
@@ -75,16 +75,16 @@ export default function QAChat() {
         <div className="max-w-4xl mx-auto px-6 py-8 space-y-5">
           {messages.length === 0 && (
             <div className="text-center py-16">
-              <div className="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto mb-4">
-                <Database className="w-6 h-6 text-emerald-700" />
+              <div className="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center mx-auto mb-4">
+                <Database className="w-6 h-6 text-blue-700" />
               </div>
-              <h2 className="text-lg font-semibold text-slate-900">GraphRAG Q&amp;A</h2>
+              <h2 className="text-lg font-semibold text-slate-900">Simple Q&amp;A</h2>
               <p className="text-sm text-slate-500 mt-1 max-w-md mx-auto">
-                Questions are answered using hybrid search (vector + text), query expansion, and $graphLookup graph traversal, grounded by GPT-4o.
+                Questions are answered using simple vector search only — no query expansion, no hybrid search, no graph traversal.
               </p>
               {!ready && (
                 <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 inline-block mt-4">
-                  Complete the <a className="underline" href="/setup">Setup page</a> first.
+                  Complete the <a className="underline" href="/simple-setup">Simple RAG Setup page</a> first.
                 </p>
               )}
               {ready && (
@@ -97,7 +97,7 @@ export default function QAChat() {
                     <button
                       key={s}
                       onClick={() => setInput(s)}
-                      className="text-xs bg-white border border-slate-200 hover:border-emerald-400 hover:text-emerald-700 rounded-full px-3 py-1.5 text-slate-600"
+                      className="text-xs bg-white border border-slate-200 hover:border-blue-400 hover:text-blue-700 rounded-full px-3 py-1.5 text-slate-600"
                     >
                       {s}
                     </button>
@@ -134,7 +134,7 @@ export default function QAChat() {
               }}
               rows={1}
               placeholder="Ask a question about the Master Policy..."
-              className="flex-1 resize-none border border-slate-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              className="flex-1 resize-none border border-slate-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
             <button
               onClick={handleSend}
